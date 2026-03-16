@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VLESS Diagnostic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:         #0a0c10;
+  --bg2:        #0f1218;
+  --bg3:        #151a22;
+  --border:     #1e2630;
+  --border2:    #2a3340;
+  --accent:     #00d4ff;
+  --accent2:    #0099cc;
+  --green:      #00e676;
+  --yellow:     #ffd740;
+  --red:        #ff5252;
+  --dim:        #4a5568;
+  --text:       #e2e8f0;
+  --text2:      #94a3b8;
+  --text3:      #64748b;
+  --mono:       'JetBrains Mono', monospace;
+  --sans:       'Syne', sans-serif;
+  --radius:     8px;
+  --glow:       0 0 20px rgba(0,212,255,0.15);
+  --glow2:      0 0 40px rgba(0,212,255,0.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Grid noise texture overlay ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% -10%, rgba(0,212,255,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(0,230,118,0.03) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── Layout ── */
+.app {
+  position: relative; z-index: 1;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px 40px;
+}
+
+/* ── Header ── */
+header {
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo-mark {
+  width: 36px; height: 36px;
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: var(--accent);
+  box-shadow: var(--glow);
+  flex-shrink: 0;
+}
+
+.header-text h1 {
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+
+.header-text p {
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+}
+
+.header-badge {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--accent2);
+  border: 1px solid var(--border2);
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(0,212,255,0.04);
+}
+
+/* ── Input panel ── */
+.input-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.input-panel::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.4;
+}
+
+.input-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.uri-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+#uriInput {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 0;
+}
+
+#uriInput::placeholder { color: var(--text3); }
+#uriInput:focus {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 2px rgba(0,212,255,0.1);
+}
+
+.scan-btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0 22px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-btn::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.15);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.scan-btn:hover::after { opacity: 1; }
+.scan-btn:active { transform: scale(0.98); }
+.scan-btn:disabled {
+  background: var(--dim);
+  cursor: not-allowed;
+  color: var(--text3);
+}
+
+/* ── Progress bar ── */
+.progress-bar {
+  margin-top: 14px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.progress-bar.active { opacity: 1; }
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  width: 0%;
+  box-shadow: 0 0 8px rgba(0,212,255,0.5);
+}
+
+.progress-label {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text3);
+  min-height: 16px;
+}
+
+/* ── Results area ── */
+#results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Placeholder ── */
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text3);
+  text-align: center;
+  gap: 12px;
+}
+
+.placeholder-icon {
+  font-size: 32px;
+  opacity: 0.3;
+}
+
+.placeholder p {
+  font-size: 12px;
+  max-width: 320px;
+  line-height: 1.7;
+}
+
+/* ── Section card ── */
+.section-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: fadeSlide 0.3s ease both;
+}
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.section-header {
+  padding: 10px 16px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.section-body { padding: 4px 0; }
+
+/* ── Subsection ── */
+.subsection {
+  padding: 8px 16px 4px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subsection::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Field row ── */
+.field-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  align-items: baseline;
+  padding: 5px 16px;
+  gap: 12px;
+  transition: background 0.15s;
+}
+
+.field-row:hover { background: rgba(255,255,255,0.015); }
+
+.field-label {
+  color: var(--text3);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.field-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.status-ok    .field-icon { color: var(--green); }
+.status-warn  .field-icon { color: var(--yellow); }
+.status-fail  .field-icon { color: var(--red); }
+.status-info  .field-icon { color: var(--accent); }
+.status-neutral .field-icon { color: var(--dim); }
+
+.status-ok    .field-value-text { color: var(--text); }
+.status-warn  .field-value-text { color: var(--yellow); }
+.status-fail  .field-value-text { color: var(--red); }
+.status-info  .field-value-text { color: var(--text); }
+.status-neutral .field-value-text { color: var(--text2); }
+
+/* ── Bar rows ── */
+.bar-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  align-items: center;
+  padding: 5px 16px;
+  gap: 12px;
+}
+
+.bar-row:hover { background: rgba(255,255,255,0.015); }
+
+.bar-label {
+  color: var(--text3);
+  font-size: 12px;
+}
+
+.bar-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--border2);
+  border-radius: 4px;
+  overflow: hidden;
+  max-width: 180px;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bar-fill.excellent { background: var(--green); box-shadow: 0 0 6px rgba(0,230,118,0.4); }
+.bar-fill.good      { background: var(--green); opacity: 0.7; }
+.bar-fill.fair      { background: var(--yellow); box-shadow: 0 0 6px rgba(255,215,64,0.3); }
+.bar-fill.poor      { background: var(--red); box-shadow: 0 0 6px rgba(255,82,82,0.3); }
+
+.bar-value {
+  font-size: 12px;
+  color: var(--text);
+  min-width: 70px;
+  text-align: right;
+}
+
+.bar-badge {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.badge-excellent { background: rgba(0,230,118,0.15); color: var(--green); }
+.badge-good      { background: rgba(0,230,118,0.1); color: #4caf50; }
+.badge-fair      { background: rgba(255,215,64,0.12); color: var(--yellow); }
+.badge-poor      { background: rgba(255,82,82,0.12); color: var(--red); }
+.badge-na        { background: var(--border); color: var(--dim); }
+
+/* ── Step indicator ── */
+.step-row {
+  padding: 10px 16px 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+}
+
+.step-num {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent2);
+  background: rgba(0,212,255,0.08);
+  border: 1px solid rgba(0,212,255,0.2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.step-msg { color: var(--text2); }
+
+/* ── Log messages ── */
+.log-ok, .log-warn, .log-error, .log-progress {
+  padding: 4px 16px;
+  font-size: 11px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.log-ok       { color: var(--green); }
+.log-warn     { color: var(--yellow); }
+.log-error    { color: var(--red); }
+.log-progress { color: var(--dim); }
+
+.log-prefix { flex-shrink: 0; opacity: 0.7; }
+
+/* ── Summary card ── */
+.summary-card {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  animation: fadeSlide 0.4s ease both;
+}
+
+.summary-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.summary-card.excellent::before { background: linear-gradient(90deg, var(--green), transparent); }
+.summary-card.good::before      { background: linear-gradient(90deg, #4caf50, transparent); }
+.summary-card.fair::before      { background: linear-gradient(90deg, var(--yellow), transparent); }
+.summary-card.poor::before      { background: linear-gradient(90deg, var(--red), transparent); }
+
+.summary-score-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.score-circle {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.score-num {
+  font-family: var(--sans);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.score-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.score-circle.excellent { border-color: var(--green); box-shadow: 0 0 20px rgba(0,230,118,0.2); }
+.score-circle.excellent .score-num { color: var(--green); }
+.score-circle.good      { border-color: #4caf50; }
+.score-circle.good      .score-num { color: #4caf50; }
+.score-circle.fair      { border-color: var(--yellow); }
+.score-circle.fair      .score-num { color: var(--yellow); }
+.score-circle.poor      { border-color: var(--red); }
+.score-circle.poor      .score-num { color: var(--red); }
+
+.summary-text h2 {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.summary-text p {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.score-gauge {
+  height: 6px;
+  background: var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.score-gauge-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.score-gauge-fill.excellent { background: linear-gradient(90deg, #00b547, var(--green)); }
+.score-gauge-fill.good      { background: linear-gradient(90deg, #388e3c, #4caf50); }
+.score-gauge-fill.fair      { background: linear-gradient(90deg, #f57f17, var(--yellow)); }
+.score-gauge-fill.poor      { background: linear-gradient(90deg, #b71c1c, var(--red)); }
+
+.issues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.issue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--yellow);
+  padding: 6px 10px;
+  background: rgba(255,215,64,0.05);
+  border: 1px solid rgba(255,215,64,0.1);
+  border-radius: 5px;
+}
+
+.issue-icon { flex-shrink: 0; margin-top: 1px; }
+
+/* ── Scan again button ── */
+.scan-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent2);
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.04em;
+}
+
+.scan-again:hover {
+  border-color: var(--accent2);
+  background: rgba(0,212,255,0.06);
+}
+
+/* ── Scanning spinner ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.spinner {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+/* ── URI examples ── */
+.uri-hint {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.uri-hint span { color: var(--accent2); cursor: pointer; }
+.uri-hint span:hover { text-decoration: underline; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .field-row, .bar-row { grid-template-columns: 140px 1fr; }
+  header { flex-wrap: wrap; }
+  .header-badge { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo-mark">⬡</div>
+    <div class="header-text">
+      <h1>VLESS DIAGNOSTIC</h1>
+      <p>Professional connection audit tool · Powered by sing-box</p>
+    </div>
+    <span class="header-badge">v1.0.0</span>
+  </header>
+
+  <div>
+    <!-- Input Panel -->
+    <div class="input-panel">
+      <div class="input-label">VLESS URI</div>
+      <div class="uri-row">
+        <input
+          id="uriInput"
+          type="text"
+          placeholder="vless://uuid@host:443?security=tls&type=ws&path=/..."
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <button class="scan-btn" id="scanBtn" onclick="startScan()">
+          SCAN
+        </button>
+      </div>
+      <div class="uri-hint">
+        Paste your VLESS URI above and click SCAN. Supports Reality, TLS, WS, gRPC, XTLS.
+      </div>
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-label" id="progressLabel"></div>
+    </div>
+
+    <!-- Results -->
+    <div id="results">
+      <div class="placeholder" id="placeholder">
+        <div class="placeholder-icon">◈</div>
+        <p>Enter a VLESS URI and click SCAN to start the diagnostic.<br>
+        Results will appear here in real time.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let ws = null;
+let currentStep = 0;
+let totalSteps = 6;
+let currentSection = null;
+let scanning = false;
+
+function connectWS() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+  ws.onclose = () => { ws = null; };
+  ws.onerror = () => { ws = null; };
+}
+
+connectWS();
+
+function startScan() {
+  const uri = document.getElementById('uriInput').value.trim();
+  if (!uri) {
+    document.getElementById('uriInput').focus();
+    return;
+  }
+  if (!uri.startsWith('vless://')) {
+    showInputError('URI must start with vless://');
+    return;
+  }
+  if (scanning) return;
+
+  scanning = true;
+  currentSection = null;
+
+  // Clear results
+  const results = document.getElementById('results');
+  results.innerHTML = '';
+
+  // Show progress
+  document.getElementById('progressBar').classList.add('active');
+  document.getElementById('progressFill').style.width = '2%';
+  document.getElementById('progressLabel').textContent = 'Connecting…';
+  document.getElementById('scanBtn').disabled = true;
+  document.getElementById('scanBtn').innerHTML = '<span class="spinner"></span> SCANNING';
+
+  // Ensure WS is connected
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    connectWS();
+    setTimeout(() => doScan(uri), 400);
+  } else {
+    doScan(uri);
+  }
+}
+
+function doScan(uri) {
+  fetch('/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uri })
+  }).catch(err => {
+    showError('Failed to start scan: ' + err);
+    resetUI();
+  });
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'step':      handleStep(msg.payload); break;
+    case 'section':   handleSection(msg.payload); break;
+    case 'subsection': handleSubSection(msg.payload); break;
+    case 'field':     handleField(msg.payload); break;
+    case 'metric':    handleMetric(msg.payload); break;
+    case 'speedbar':  handleSpeedBar(msg.payload); break;
+    case 'latbar':    handleLatBar(msg.payload); break;
+    case 'ok':        handleLog('ok', '✓', msg.payload); break;
+    case 'warn':      handleLog('warn', '⚠', msg.payload); break;
+    case 'error':     handleLog('error', '✗', msg.payload); break;
+    case 'progress':  handleLog('progress', '→', msg.payload); break;
+    case 'summary':   handleSummary(msg.payload); break;
+    case 'done':      handleDone(); break;
+  }
+}
+
+function handleStep(p) {
+  currentSection = null; // new step = new card context
+  if (p.step === 0) {
+    updateProgress(5, p.message);
+    return;
+  }
+  const pct = Math.min(5 + (p.step / p.total) * 85, 90);
+  updateProgress(pct, `[${p.step}/${p.total}] ${p.message}`);
+
+  // Add step indicator to results
+  const el = document.createElement('div');
+  el.className = 'section-card';
+  el.innerHTML = `<div class="step-row">
+    <span class="step-num">${p.step}/${p.total}</span>
+    <span class="step-msg">${escHtml(p.message)}</span>
+  </div>`;
+  currentSection = el;
+  appendResult(el);
+}
+
+function handleSection(title) {
+  const card = document.createElement('div');
+  card.className = 'section-card';
+  card.innerHTML = `
+    <div class="section-header">
+      <div class="section-dot"></div>
+      <div class="section-title">${escHtml(title)}</div>
+    </div>
+    <div class="section-body"></div>`;
+  currentSection = card;
+  appendResult(card);
+}
+
+function handleSubSection(title) {
+  if (!currentSection) return;
+  const body = currentSection.querySelector('.section-body') || currentSection;
+  const el = document.createElement('div');
+  el.className = 'subsection';
+  el.textContent = title;
+  body.appendChild(el);
+}
+
+function handleField(p) {
+  const body = getBody();
+  const el = document.createElement('div');
+  el.className = `field-row status-${p.status || 'neutral'}`;
+
+  const icons = { ok: '✓', warn: '⚠', fail: '✗', info: 'ℹ', neutral: '·' };
+  const icon = icons[p.status] || '·';
+
+  el.innerHTML = `
+    <div class="field-label">${escHtml(p.label)}</div>
+    <div class="field-value">
+      <span class="field-icon">${icon}</span>
+      <span class="field-value-text">${escHtml(p.value)}</span>
+    </div>`;
+  body.appendChild(el);
+}
+
+function handleMetric(p) {
+  const body = getBody();
+  const el = document.createElement('div');
+  el.className = 'bar-row';
+
+  const maxVals = { ms: 500, '%': 100, MB: 100, s: 15, Mbps: 200 };
+  const max = maxVals[p.unit] || 100;
+  const pct = Math.min((p.num / max) * 100, 100);
+
+  el.innerHTML = `
+    <div class="bar-label">${escHtml(p.label)}</div>
+    <div class="bar-container">
+      <div class="bar-track">
+        <div class="bar-fill ${p.quality}" style="width:${pct}%"></div>
+      </div>
+      <div class="bar-value">${escHtml(p.value)} <span style="color:var(--text3)">${escHtml(p.unit)}</span></div>
+      <span class="bar-badge badge-${p.quality}">${p.quality}</span>
+    </div>`;
+  body.appendChild(el);
+}
+
+function handleLatBar(p) {
+  const body = getBody();
+  const el = document.createElement('div');
+  el.className = 'bar-row';
+  const pct = Math.min((p.ms / 500) * 100, 100);
+  el.innerHTML = `
+    <div class="bar-label">${escHtml(p.label)}</div>
+    <div class="bar-container">
+      <div class="bar-track">
+        <div class="bar-fill ${p.quality}" style="width:${pct}%"></div>
+      </div>
+      <div class="bar-value">${p.ms.toFixed(1)} <span style="color:var(--text3)">ms</span></div>
+      <span class="bar-badge badge-${p.quality}">${p.quality}</span>
+    </div>`;
+  body.appendChild(el);
+}
+
+function handleSpeedBar(p) {
+  const body = getBody();
+  const el = document.createElement('div');
+  el.className = 'bar-row';
+  const pct = Math.min((p.mbps / 200) * 100, 100);
+  el.innerHTML = `
+    <div class="bar-label">${escHtml(p.label)}</div>
+    <div class="bar-container">
+      <div class="bar-track">
+        <div class="bar-fill ${p.quality}" style="width:${pct}%"></div>
+      </div>
+      <div class="bar-value">${p.mbps.toFixed(2)} <span style="color:var(--text3)">Mbps</span></div>
+      <span class="bar-badge badge-${p.quality}">${p.quality}</span>
+    </div>`;
+  body.appendChild(el);
+}
+
+function handleLog(type, prefix, text) {
+  const body = getBody();
+  const el = document.createElement('div');
+  el.className = `log-${type}`;
+  el.innerHTML = `<span class="log-prefix">${prefix}</span><span>${escHtml(text)}</span>`;
+  body.appendChild(el);
+}
+
+function handleSummary(p) {
+  updateProgress(100, 'Done');
+}
+
+function handleDone() {
+  updateProgress(100, 'Scan complete');
+  setTimeout(() => {
+    document.getElementById('progressBar').classList.remove('active');
+    document.getElementById('progressLabel').textContent = '';
+  }, 2000);
+  resetUI();
+  // Scroll to summary
+  setTimeout(() => {
+    const results = document.getElementById('results');
+    results.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 100);
+}
+
+function scanAgain() {
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('uriInput').value = '';
+  document.getElementById('uriInput').focus();
+  document.getElementById('progressBar').classList.remove('active');
+  document.getElementById('progressLabel').textContent = '';
+}
+
+function getBody() {
+  if (!currentSection) {
+    const card = document.createElement('div');
+    card.className = 'section-card';
+    card.innerHTML = '<div class="section-body"></div>';
+    currentSection = card;
+    appendResult(card);
+  }
+  return currentSection.querySelector('.section-body') || currentSection;
+}
+
+function appendResult(el) {
+  const results = document.getElementById('results');
+  const ph = document.getElementById('placeholder');
+  if (ph) ph.remove();
+  results.appendChild(el);
+  // Auto-scroll
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updateProgress(pct, label) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+function resetUI() {
+  scanning = false;
+  document.getElementById('scanBtn').disabled = false;
+  document.getElementById('scanBtn').textContent = 'SCAN';
+}
+
+function showError(msg) {
+  const el = document.createElement('div');
+  el.className = 'log-error';
+  el.innerHTML = `<span class="log-prefix">✗</span><span>${escHtml(msg)}</span>`;
+  appendResult(el);
+}
+
+function showInputError(msg) {
+  const input = document.getElementById('uriInput');
+  input.style.borderColor = 'var(--red)';
+  input.style.boxShadow = '0 0 0 2px rgba(255,82,82,0.15)';
+  setTimeout(() => {
+    input.style.borderColor = '';
+    input.style.boxShadow = '';
+  }, 2000);
+}
+
+function scoreClass(score) {
+  if (score >= 90) return 'excellent';
+  if (score >= 75) return 'good';
+  if (score >= 55) return 'fair';
+  return 'poor';
+}
+
+function verdictTitle(score) {
+  if (score >= 90) return 'Excellent';
+  if (score >= 75) return 'Good';
+  if (score >= 55) return 'Fair';
+  if (score >= 35) return 'Poor';
+  return 'Critical';
+}
+
+function escHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Enter key to scan
+document.getElementById('uriInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startScan();
+});
+</script>
+</body>
+</html>
